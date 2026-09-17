@@ -34,17 +34,41 @@ public class GuildMasterAnswerAction
     /// <param name="answer">The answer.</param>
     public async ValueTask ProcessAnswerAsync(Player player, Answer answer)
     {
-        if (player.PlayerState.CurrentState == PlayerState.EnteredWorld && answer == Answer.ShowDialog)
+        if (answer == Answer.ShowDialog
+            && player.PlayerState.CurrentState == PlayerState.NpcDialogOpened
+            && player.OpenedNpc?.Definition.NpcWindow == NpcWindow.GuildMaster)
         {
-            await player.InvokeViewPlugInAsync<IShowGuildCreationDialogPlugIn>(p => p.ShowGuildCreationDialogAsync()).ConfigureAwait(false);
-        }
-        else if (player.OpenedNpc?.Definition.NpcWindow == NpcWindow.GuildMaster && await player.PlayerState.TryAdvanceToAsync(PlayerState.EnteredWorld).ConfigureAwait(false))
-        {
+            // The actual guild creation action expects EnteredWorld.
+            if (!await player.PlayerState
+                .TryAdvanceToAsync(PlayerState.EnteredWorld)
+                .ConfigureAwait(false))
+            {
+                return;
+            }
+
             player.OpenedNpc = null;
+
+            await player
+                .InvokeViewPlugInAsync<IShowGuildCreationDialogPlugIn>(
+                    p => p.ShowGuildCreationDialogAsync())
+                .ConfigureAwait(false);
+
+            return;
         }
-        else
+
+        if (answer == Answer.Cancel
+            && player.OpenedNpc?.Definition.NpcWindow == NpcWindow.GuildMaster)
         {
-            // nothing to do.
+            if (await player.PlayerState
+                .TryAdvanceToAsync(PlayerState.EnteredWorld)
+                .ConfigureAwait(false))
+            {
+                player.OpenedNpc = null;
+            }
+
+            return;
         }
+
+        // Nothing to do.
     }
 }

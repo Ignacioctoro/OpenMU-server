@@ -34,8 +34,10 @@ public class GuildKickPlayerAction
             return;
         }
 
-        var guildServer = (player.GameContext as IGameServerContext)?.GuildServer;
-        if (guildServer is null)
+        var gameServerContext = player.GameContext as IGameServerContext;
+        var guildServer = gameServerContext?.GuildServer;
+
+        if (guildServer is null || gameServerContext is null)
         {
             player.Logger.LogWarning("No guild server available");
             return;
@@ -58,11 +60,65 @@ public class GuildKickPlayerAction
             return;
         }
 
-        if (isKickingHimself && player.GuildStatus?.Position == GuildPosition.GuildMaster)
+        if (isKickingHimself
+            && player.GuildStatus?.Position == GuildPosition.GuildMaster)
         {
             var guildId = player.GuildStatus.GuildId;
-            await player.InvokeViewPlugInAsync<IGuildKickResultPlugIn>(p => p.GuildKickResultAsync(GuildKickSuccess.GuildDisband)).ConfigureAwait(false);
-            await guildServer.KickMemberAsync(guildId, nickname).ConfigureAwait(false);
+
+            // Guild ids are runtime ids. They can become stale if the GuildServer
+            // unloaded/recreated its guild container.
+            if (await guildServer.GetGuildAsync(guildId).ConfigureAwait(false) is null)
+            {
+                player.Logger.LogWarning(
+                    "Guild runtime id {GuildId} is stale for {Player}. Reloading guild membership.",
+                    guildId,
+                    player.Name);
+
+                // Remove the player from the stale GameServer-side guild index.
+                await gameServerContext
+                    .UnregisterGuildMemberAsync(player)
+                    .ConfigureAwait(false);
+
+                // Reload the persistent GuildMember.
+                // This recreates the GuildServer container when required and
+                // publishes a fresh GuildStatus back to the GameServer.
+                await guildServer
+                    .PlayerEnteredGameAsync(
+                        player.SelectedCharacter.Id,
+                        player.SelectedCharacter.Name!,
+                        gameServerContext.Id)
+                    .ConfigureAwait(false);
+
+                guildId = player.GuildStatus?.GuildId ?? 0;
+
+                if (guildId == 0
+                    || await guildServer.GetGuildAsync(guildId)
+                        .ConfigureAwait(false) is null)
+                {
+                    player.Logger.LogError(
+                        "Couldn't reload guild membership for {Player}.",
+                        player.Name);
+
+                    await player
+                        .InvokeViewPlugInAsync<IGuildKickResultPlugIn>(
+                            p => p.GuildKickResultAsync(
+                                GuildKickSuccess.Failed))
+                        .ConfigureAwait(false);
+
+                    return;
+                }
+            }
+
+            await guildServer
+                .KickMemberAsync(guildId, nickname)
+                .ConfigureAwait(false);
+
+            await player
+                .InvokeViewPlugInAsync<IGuildKickResultPlugIn>(
+                    p => p.GuildKickResultAsync(
+                        GuildKickSuccess.GuildDisband))
+                .ConfigureAwait(false);
+
             return;
         }
 

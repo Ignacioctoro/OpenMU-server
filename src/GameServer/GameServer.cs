@@ -396,8 +396,14 @@ public sealed class GameServer : IGameServer, IDisposable, IAsyncDisposable, IGa
     /// <inheritdoc/>
     public async ValueTask GuildDeletedAsync(uint guildId)
     {
-        await this._gameContext.RemoveGuildAsync(guildId).ConfigureAwait(false);
-        await this._gameContext.ForEachGuildPlayerAsync(guildId, p => this.RemovePlayerFromGuildAsync(p, false).AsTask()).ConfigureAwait(false);
+        await this._gameContext.ForEachGuildPlayerAsync(
+            guildId,
+            p => this.RemovePlayerFromGuildAsync(p, false).AsTask())
+            .ConfigureAwait(false);
+
+        await this._gameContext
+            .RemoveGuildAsync(guildId)
+            .ConfigureAwait(false);
 
         //// todo: alliance things?
     }

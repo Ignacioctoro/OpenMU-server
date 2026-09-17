@@ -28,8 +28,24 @@ internal class GuildMasterAnswerHandlerPlugIn : IPacketHandlerPlugIn
 
     /// <inheritdoc/>
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
-    {
-        GuildMasterAnswer answer = packet;
-        await this._answerAction.ProcessAnswerAsync(player, answer.ShowCreationDialog ? GuildMasterAnswerAction.Answer.ShowDialog : GuildMasterAnswerAction.Answer.Cancel).ConfigureAwait(false);
-    }
+{
+    GuildMasterAnswer answer = packet;
+
+    Console.WriteLine(
+        $"[GUILD DEBUG] GuildMasterAnswer recibido. " +
+        $"ShowCreationDialog={answer.ShowCreationDialog}, " +
+        $"PlayerState={player.PlayerState.CurrentState}, " +
+        $"OpenedNpc={player.OpenedNpc?.Definition?.NpcWindow}");
+
+    await this._answerAction.ProcessAnswerAsync(
+        player,
+        answer.ShowCreationDialog
+            ? GuildMasterAnswerAction.Answer.ShowDialog
+            : GuildMasterAnswerAction.Answer.Cancel)
+        .ConfigureAwait(false);
+
+    Console.WriteLine(
+        $"[GUILD DEBUG] ProcessAnswer terminado. " +
+        $"PlayerState={player.PlayerState.CurrentState}");
+}
 }

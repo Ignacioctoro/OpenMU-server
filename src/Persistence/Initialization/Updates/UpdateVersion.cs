@@ -579,4 +579,9 @@ public enum UpdateVersion
     /// The version of the <see cref="AddKanturuMapContentUpdatePlugIn"/>.
     /// </summary>
     AddKanturuMapContent = 114,
+
+    /// <summary>
+    /// Updates the Lorencia terrain data from Terrain1.att.
+    /// </summary>
+    UpdateLorenciaTerrain = 115,
 }

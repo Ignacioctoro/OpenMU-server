@@ -180,8 +180,28 @@ public class AreaSkillAttackAction
         }
 
         if (player.IsAtSafezone())
-        {
-            player.Logger.LogWarning("Probably Hacker - player {player} is attacking from safezone", player);
+{
+            var terrain = player.CurrentMap?.Terrain;
+            var terrainData = player.CurrentMap?.Definition.TerrainData;
+
+            var terrainIndex = 3 + (player.Position.Y * 256) + player.Position.X;
+
+            var terrainByte =
+                terrainData is not null && terrainIndex < terrainData.Length
+                    ? terrainData[terrainIndex]
+                    : (byte?)null;
+
+            player.Logger.LogWarning(
+                "SAFEZONE DEBUG - Player {player} X:{X} Y:{Y} | Terrain:{HasTerrain} | SafezoneMap:{HasSafezoneMap} | SafezoneValue:{SafezoneValue} | TerrainByte:{TerrainByte} | TerrainDataLength:{Length}",
+                player,
+                player.Position.X,
+                player.Position.Y,
+                terrain is not null,
+                terrain?.SafezoneMap is not null,
+                terrain?.SafezoneMap?[player.Position.X, player.Position.Y],
+                terrainByte,
+                terrainData?.Length);
+
             return;
         }
 

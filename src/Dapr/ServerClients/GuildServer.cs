@@ -209,11 +209,22 @@ public class GuildServer : IGuildServer
     }
 
     /// <inheritdoc />
-    public ValueTask GuildMemberLeftGameAsync(uint guildId, Guid guildMemberId, byte serverId)
+    public ValueTask GuildMemberLeftGameAsync(
+    uint guildId,
+    Guid guildMemberId,
+    byte serverId)
+{
+    if (this._guildDictionary.TryGetValue(guildId, out var guild))
     {
-        // Handled by EventPublisher, through pub/sub component.
-        return ValueTask.CompletedTask;
+        guild.SetServerId(guildMemberId, OfflineServerId);
+
+        // TEMPORARY:
+        // Keep guild containers loaded so their runtime IDs remain stable.
+        // This avoids stale GuildStatus.GuildId values on the GameServer.
     }
+
+    return ValueTask.CompletedTask;
+}
 
     /// <inheritdoc />
     public async ValueTask<IImmutableList<GuildListEntry>> GetGuildListAsync(uint guildId)
