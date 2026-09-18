@@ -14,17 +14,66 @@ using MUnique.OpenMU.GameLogic.Views;
 public class ChatMessageWhisperProcessor : BannableChatMessageBaseProcessor
 {
     /// <inheritdoc />
-    public override async ValueTask SubclassProcessMessageAsync(Player sender, (string Message, string PlayerName) content)
+    public override async ValueTask SubclassProcessMessageAsync(
+        Player sender,
+        (string Message, string PlayerName) content)
     {
-        var whisperReceiver = sender.GameContext.GetPlayerByCharacterName(content.PlayerName);
-        if (whisperReceiver != null)
+        var whisperReceiver =
+            sender.GameContext.GetPlayerByCharacterName(content.PlayerName);
+
+        // Receiver is not online.
+        if (whisperReceiver is null)
         {
-            var eventArgs = new CancelEventArgs();
-            sender.GameContext.PlugInManager.GetPlugInPoint<IWhisperMessageReceivedPlugIn>()?.WhisperMessageReceived(sender, whisperReceiver, content.Message, eventArgs);
-            if (!eventArgs.Cancel)
-            {
-                await whisperReceiver.InvokeViewPlugInAsync<IChatViewPlugIn>(p => p.ChatMessageAsync(content.Message, sender.SelectedCharacter!.Name, ChatMessageType.Whisper)).ConfigureAwait(false);
-            }
+            await sender
+                .InvokeViewPlugInAsync<IChatViewPlugIn>(
+                    p => p.ChatMessageAsync(
+                        $"Player '{content.PlayerName}' is not online.",
+                        "System",
+                        ChatMessageType.Whisper))
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        var eventArgs = new CancelEventArgs();
+
+        sender.GameContext.PlugInManager
+            .GetPlugInPoint<IWhisperMessageReceivedPlugIn>()?
+            .WhisperMessageReceived(
+                sender,
+                whisperReceiver,
+                content.Message,
+                eventArgs);
+
+        if (eventArgs.Cancel)
+        {
+            return;
+        }
+
+        // Send the actual whisper to the receiver.
+        await whisperReceiver
+            .InvokeViewPlugInAsync<IChatViewPlugIn>(
+                p => p.ChatMessageAsync(
+                    content.Message,
+                    sender.SelectedCharacter!.Name,
+                    ChatMessageType.Whisper))
+            .ConfigureAwait(false);
+
+        // Echo the successfully delivered whisper back to the sender.
+        // We use the receiver name as "sender" so the sender sees:
+        //
+        // ancientDk : hi
+        //
+        // This also confirms that the receiver was found online.
+        if (!ReferenceEquals(sender, whisperReceiver))
+        {
+            await sender
+                .InvokeViewPlugInAsync<IChatViewPlugIn>(
+                    p => p.ChatMessageAsync(
+                        $"Para {content.PlayerName}: {content.Message}",
+                        string.Empty,
+                        ChatMessageType.Whisper))
+                .ConfigureAwait(false);
         }
     }
 }
