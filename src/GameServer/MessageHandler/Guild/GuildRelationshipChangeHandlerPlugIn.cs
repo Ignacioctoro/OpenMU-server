@@ -4,7 +4,9 @@
 
 namespace MUnique.OpenMU.GameServer.MessageHandler.Guild;
 
+using System;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlayerActions.Guild;
 using MUnique.OpenMU.GameLogic.Views;
@@ -33,19 +35,45 @@ internal class GuildRelationshipChangeHandlerPlugIn : IPacketHandlerPlugIn
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
         GuildRelationshipChangeRequest request = packet;
+        var targetPlayer =
+            player.GetObject(
+                request.TargetPlayerId);
 
-        var targetPlayer = player.GetObject(request.TargetPlayerId);
-        if (player == targetPlayer && request.RelationshipType == GuildRelationshipType.Alliance && request.RequestType == GuildRequestType.Leave)
+        if (player == targetPlayer &&
+            request.RequestType == GuildRequestType.Leave)
         {
-            await this._action.RequestLeaveAllianceAsync(player).ConfigureAwait(false);
+            switch (request.RelationshipType)
+            {
+                case GuildRelationshipType.Alliance:
+                    await this._action
+                        .RequestLeaveAllianceAsync(player)
+                        .ConfigureAwait(false);
+                    break;
+
+                case GuildRelationshipType.Hostility:
+                    await this._action
+                        .RequestLeaveHostilityAsync(player)
+                        .ConfigureAwait(false);
+                    break;
+
+                default:
+                    await this._action.RequestAsync(
+                            player,
+                            request.TargetPlayerId,
+                            (ViewGuildRelationshipType)(byte)request.RelationshipType,
+                            (ViewGuildRelationshipRequestType)(byte)request.RequestType)
+                        .ConfigureAwait(false);
+                    break;
+            }
         }
         else
         {
             await this._action.RequestAsync(
-                player,
-                request.TargetPlayerId,
-                (ViewGuildRelationshipType)(byte)request.RelationshipType,
-                (ViewGuildRelationshipRequestType)(byte)request.RequestType).ConfigureAwait(false);
+                    player,
+                    request.TargetPlayerId,
+                    (ViewGuildRelationshipType)(byte)request.RelationshipType,
+                    (ViewGuildRelationshipRequestType)(byte)request.RequestType)
+                .ConfigureAwait(false);
         }
     }
 }

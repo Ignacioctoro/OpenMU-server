@@ -202,25 +202,71 @@ public class GuildServer : IGuildServer
     }
 
     /// <inheritdoc/>
-    public async ValueTask ChangeGuildMemberPositionAsync(uint guildId, Guid characterId, GuildPosition role)
+    public async ValueTask ChangeGuildMemberPositionAsync(
+        uint guildId,
+        Guid characterId,
+        GuildPosition role)
     {
         try
         {
-            if (this._guildDictionary.TryGetValue(guildId, out var guild))
+            if (!this._guildDictionary.TryGetValue(
+                    guildId,
+                    out var guild))
             {
-                var guildMember = guild.Guild.Members.FirstOrDefault(m => m.Id == characterId);
-                if (guildMember != null)
-                {
-                    guildMember.Status = role;
-                    await guild.DatabaseContext.SaveChangesAsync().ConfigureAwait(false);
-                    var listEntry = guild.Members[characterId];
-                    listEntry.PlayerPosition = role;
-                }
+                return;
+            }
+
+            var guildMember =
+                guild.Guild.Members
+                    .FirstOrDefault(
+                        member =>
+                            member.Id ==
+                            characterId);
+
+            if (guildMember is null)
+            {
+                return;
+            }
+
+            guildMember.Status =
+                role;
+
+            await guild.DatabaseContext
+                .SaveChangesAsync()
+                .ConfigureAwait(false);
+
+            if (!guild.Members.TryGetValue(
+                    characterId,
+                    out var listEntry))
+            {
+                return;
+            }
+
+            listEntry.PlayerPosition =
+                role;
+
+            // Si está online, actualizar también
+            // su GuildStatus en el GameServer.
+            if (listEntry.ServerId !=
+                    OfflineServerId &&
+                !string.IsNullOrEmpty(
+                    listEntry.PlayerName))
+            {
+                await this._changePublisher
+                    .AssignGuildToPlayerAsync(
+                        listEntry.ServerId,
+                        listEntry.PlayerName,
+                        new GuildMemberStatus(
+                            guildId,
+                            role))
+                    .ConfigureAwait(false);
             }
         }
         catch (Exception ex)
         {
-            this._logger.LogError(ex, "Error when saving a changed guild member.");
+            this._logger.LogError(
+                ex,
+                "Error when saving a changed guild member.");
         }
     }
 

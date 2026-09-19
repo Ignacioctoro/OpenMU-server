@@ -3,7 +3,7 @@
 // </copyright>
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Guild;
-
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Guild;
@@ -31,17 +31,82 @@ public class GuildRelationshipChangeAction
         }
 
         // Find the target player
-        var targetPlayer = await player.GetObservingPlayerWithIdAsync(targetPlayerId).ConfigureAwait(false);
-        if (targetPlayer?.GuildStatus is not { } targetGuildStatus
-            || await serverContext.GuildServer.GetGuildAsync(targetGuildStatus.GuildId).ConfigureAwait(false) is not { Name: not null } targetGuild)
+        var targetPlayer =
+            await player
+                .GetObservingPlayerWithIdAsync(targetPlayerId)
+                .ConfigureAwait(false);
+
+        if (targetPlayer is null)
         {
-            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(p => p.ShowResultAsync(relationshipType, requestType, GuildRelationshipChangeResultType.Failed, targetPlayerId)).ConfigureAwait(false);
+            player.Logger.LogWarning(
+                "[GuildAlliance] FAILED: target player {TargetPlayerId} was not found in observing scope.",
+                targetPlayerId);
+
+            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(
+                p => p.ShowResultAsync(
+                    relationshipType,
+                    requestType,
+                    GuildRelationshipChangeResultType.Failed,
+                    targetPlayerId))
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        if (targetPlayer.GuildStatus is not { } targetGuildStatus)
+        {
+            player.Logger.LogWarning(
+                "[GuildAlliance] FAILED: target player {TargetPlayerId} has no GuildStatus.",
+                targetPlayerId);
+
+            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(
+                p => p.ShowResultAsync(
+                    relationshipType,
+                    requestType,
+                    GuildRelationshipChangeResultType.Failed,
+                    targetPlayerId))
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        var targetGuild =
+            await serverContext.GuildServer
+                .GetGuildAsync(targetGuildStatus.GuildId)
+                .ConfigureAwait(false);
+
+        if (targetGuild?.Name is null)
+        {
+            player.Logger.LogWarning(
+                "[GuildAlliance] FAILED: target guild {GuildId} is not loaded in GuildServer.",
+                targetGuildStatus.GuildId);
+
+            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(
+                p => p.ShowResultAsync(
+                    relationshipType,
+                    requestType,
+                    GuildRelationshipChangeResultType.Failed,
+                    targetPlayerId))
+                .ConfigureAwait(false);
+
             return;
         }
 
         if (targetGuildStatus.Position != GuildPosition.GuildMaster)
         {
-            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(p => p.ShowResultAsync(relationshipType, requestType, GuildRelationshipChangeResultType.Failed, targetPlayerId)).ConfigureAwait(false);
+            player.Logger.LogWarning(
+                "[GuildAlliance] FAILED: target player {TargetPlayerId} position is {Position}, expected GuildMaster.",
+                targetPlayerId,
+                targetGuildStatus.Position);
+
+            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(
+                p => p.ShowResultAsync(
+                    relationshipType,
+                    requestType,
+                    GuildRelationshipChangeResultType.Failed,
+                    targetPlayerId))
+                .ConfigureAwait(false);
+
             return;
         }
 
@@ -138,6 +203,95 @@ public class GuildRelationshipChangeAction
     }
 
     /// <summary>
+    /// Removes the hostility relationship of the player's own guild
+    /// without requiring the rival guild master to be in observing range.
+    /// </summary>
+    /// <param name="player">
+    /// The guild master requesting to end the hostility.
+    /// </param>
+    public async ValueTask RequestLeaveHostilityAsync(
+        Player player)
+    {
+        var (
+            success,
+            (
+                sourceGuildId,
+                serverContext,
+                sourceGuild)) =
+            await this.CommonChecksAsync(
+                    player,
+                    0,
+                    GuildRelationshipType.Hostility,
+                    GuildRelationshipRequestType.Leave)
+                .ConfigureAwait(false);
+
+        if (!success)
+        {
+            return;
+        }
+
+        string? rivalGuildName =
+            sourceGuild.Hostility?.Name;
+
+        if (string.IsNullOrWhiteSpace(
+                rivalGuildName))
+        {
+            await player.InvokeViewPlugInAsync<
+                    IGuildRelationshipChangeResultPlugIn>(
+                    p => p.ShowResultAsync(
+                        GuildRelationshipType.Hostility,
+                        GuildRelationshipRequestType.Leave,
+                        GuildRelationshipChangeResultType.HostileGuildDoesNotExist,
+                        null))
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        uint rivalGuildId =
+            await serverContext.GuildServer
+                .GetGuildIdByNameAsync(
+                    rivalGuildName)
+                .ConfigureAwait(false);
+
+        if (rivalGuildId == 0)
+        {
+            await player.InvokeViewPlugInAsync<
+                    IGuildRelationshipChangeResultPlugIn>(
+                    p => p.ShowResultAsync(
+                        GuildRelationshipType.Hostility,
+                        GuildRelationshipRequestType.Leave,
+                        GuildRelationshipChangeResultType.GuildNotFound,
+                        null))
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        bool removeSuccess =
+            await serverContext.GuildServer
+                .SetHostilityAsync(
+                    sourceGuildId,
+                    rivalGuildId,
+                    false)
+                .ConfigureAwait(false);
+
+        GuildRelationshipChangeResultType result =
+            removeSuccess
+                ? GuildRelationshipChangeResultType.Success
+                : GuildRelationshipChangeResultType.Failed;
+
+        await player.InvokeViewPlugInAsync<
+                IGuildRelationshipChangeResultPlugIn>(
+                p => p.ShowResultAsync(
+                    GuildRelationshipType.Hostility,
+                    GuildRelationshipRequestType.Leave,
+                    result,
+                    null))
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Processes the response from the target guild master to an alliance request.
     /// </summary>
     /// <param name="player">The target guild master who is responding.</param>
@@ -202,11 +356,23 @@ public class GuildRelationshipChangeAction
         }
 
         if (player.GuildStatus is not { } guildStatus
-            || player.GameContext is not IGameServerContext serverContext)
-        {
-            await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(p => p.ShowResultAsync(relationshipType, requestType, GuildRelationshipChangeResultType.Failed, targetPlayerId)).ConfigureAwait(false);
-            return (false, null!);
-        }
+        || player.GameContext is not IGameServerContext serverContext)
+    {
+        player.Logger.LogWarning(
+            "[GuildAlliance] FAILED: requester GuildStatus={HasGuildStatus}, GameContext={GameContextType}.",
+            player.GuildStatus is not null,
+            player.GameContext?.GetType().Name ?? "null");
+
+        await player.InvokeViewPlugInAsync<IGuildRelationshipChangeResultPlugIn>(
+            p => p.ShowResultAsync(
+                relationshipType,
+                requestType,
+                GuildRelationshipChangeResultType.Failed,
+                targetPlayerId))
+            .ConfigureAwait(false);
+
+        return (false, null!);
+    }
 
         if (guildStatus.Position != GuildPosition.GuildMaster)
         {
