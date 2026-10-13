@@ -87,7 +87,15 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
         var miniGame = player.CurrentMiniGame;
         var inMiniGame = miniGame is { };
         var isBuff = skill.SkillType is SkillType.Buff or SkillType.Regeneration;
-        if (player.IsAtSafezone() && !(inMiniGame && isBuff))
+        // Classic Elf summons are self-cast companion creation, not an
+        // offensive hit. The Main sends AT_SKILL_SUMMON (+0..+6)
+        // even when the Elf is in a town safe zone. OpenMU used to
+        // reject them here without echoing an animation or spawning
+        // a creature. PvP/area attacks retain the safe-zone restriction;
+        // mini-game rules (such as Chaos Castle) still apply below.
+        if (player.IsAtSafezone()
+            && !(inMiniGame && isBuff)
+            && skill.SkillType != SkillType.SummonMonster)
         {
             return;
         }
@@ -118,12 +126,6 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             return;
         }
 
-        if (skill.SkillType == SkillType.SummonMonster && player.Summon is { })
-        {
-            await player.RemoveSummonAsync().ConfigureAwait(false);
-            return;
-        }
-
         // enough mana, ag etc?
         if (!await player.TryConsumeForSkillAsync(skillEntry).ConfigureAwait(false))
         {
@@ -146,6 +148,16 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             if (SummonSkillToMonsterMapping.TryGetValue(skill.Number, out var monsterNumber)
                 && player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == monsterNumber) is { } monsterDefinition)
             {
+                // The previous implementation dismissed an existing summon and
+                // returned before creating the newly requested monster.
+                // Preserve the classic one-companion rule, but replace the
+                // previous monster within this successful cast. Consumption
+                // was checked above, so a failed cast keeps the old companion.
+                if (player.Summon is { })
+                {
+                    await player.RemoveSummonAsync().ConfigureAwait(false);
+                }
+
                 await player.CreateSummonedMonsterAsync(monsterDefinition).ConfigureAwait(false);
             }
         }
