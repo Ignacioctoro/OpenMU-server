@@ -377,7 +377,7 @@ internal class SkillsInitializer : SkillsInitializerBase
         this.CreateSkill(SkillNumber.CycloneStrengthenerDuelMaster, "Cyclone Strengthener", CharacterClasses.DuelMaster, DamageType.Physical, 22, 2, manaConsumption: 9);
         this.CreateSkill(SkillNumber.LightningStrengthenerDuelMaster, "Lightning Strengthener", CharacterClasses.DuelMaster, DamageType.Physical, 3, 6, manaConsumption: 20, levelRequirement: 13, energyRequirement: 100, elementalModifier: ElementalType.Lightning);
         this.CreateSkill(SkillNumber.TwistingSlashStrengthenerDuelMaster, "Twisting Slash Stren", CharacterClasses.DuelMaster, DamageType.Physical, 3, 2, 10, 10);
-        this.CreateSkill(SkillNumber.PowerSlashStreng, "Power Slash Streng", CharacterClasses.DuelMaster, damage: 3, distance: 5, manaConsumption: 15, energyRequirement: 100);
+        this.CreateSkill(SkillNumber.PowerSlashStreng, "Power Slash Streng", CharacterClasses.DuelMaster, damage: 3, distance: 5, manaConsumption: 15);
         this.CreateSkill(SkillNumber.FlameStrengthenerDuelMaster, "Flame Strengthener", CharacterClasses.DuelMaster, DamageType.Physical, 3, 6, manaConsumption: 55, levelRequirement: 35, energyRequirement: 100, elementalModifier: ElementalType.Fire);
         this.CreateSkill(SkillNumber.BlastStrengthenerDuelMaster, "Blast Strengthener", CharacterClasses.DuelMaster, DamageType.Physical, 22, 3, manaConsumption: 165, levelRequirement: 80, energyRequirement: 150, elementalModifier: ElementalType.Lightning);
         this.CreateSkill(SkillNumber.WeaponMasteryDuelMaster, "Weapon Mastery", CharacterClasses.DuelMaster, damage: 22, skillType: SkillType.PassiveBoost);
