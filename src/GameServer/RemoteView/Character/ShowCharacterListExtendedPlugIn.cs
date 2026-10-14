@@ -90,6 +90,31 @@ public class ShowCharacterListExtendedPlugIn : IShowCharacterListPlugIn
                 characterData.Status = character.CharacterStatus.Convert();
                 characterData.GuildPosition = guildPositions[j].Convert();
                 appearanceSerializer.WriteAppearanceData(characterData.Appearance, new CharacterAppearanceDataAdapter(character), false);
+
+                // BroyalMU character-select preview: ShinyItem reserves bits 0-1
+                // of its third byte (see AppearanceSerializerExtended.ShinyItem).
+                // For a right-hand Dark Raven only, carry the server-authoritative
+                // *visual tier*, not a fabricated item/character level:
+                //   0 = 0..19, 1 = 20..39, 2 = 40+
+                // The normal level/experience still comes from C1 A9 in-game.
+                // For 27-byte preview appearance, the right-hand third byte is
+                // 2 header + 3 left-hand + 2 = index 7.
+                var equippedRaven = character.Inventory?.Items.FirstOrDefault(item =>
+                    item.ItemSlot == 1 &&
+                    item.Definition?.Group == 13 &&
+                    item.Definition.Number == 5);
+                if (equippedRaven is not null)
+                {
+                    Span<byte> preview = characterData.Appearance;
+                    if (preview.Length >= 27)
+                    {
+                        byte tier = equippedRaven.Level >= 40
+                            ? (byte)2
+                            : equippedRaven.Level >= 20 ? (byte)1 : (byte)0;
+                        preview[7] = (byte)((preview[7] & 0xFC) | tier);
+                    }
+                }
+
                 j++;
             }
 
