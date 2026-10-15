@@ -96,7 +96,14 @@ public class RemotePlayer : Player, IClientVersionProvider, IHasIpAddress
     internal MainPacketHandlerPlugInContainer MainPacketHandler { get; }
 
     /// <inheritdoc />
-    protected override bool IsPlayerStoreOpeningAfterEnterSupported => this.ClientVersion.Season > 100;
+    /// <remarks>
+    /// BROYALMU session policy: every character starts with its Personal Store
+    /// closed after login/relogin. OpenStoreAction.RestoreAfterEnterWorldAsync
+    /// clears the persisted IsStoreOpened flag, while keeping the shop inventory,
+    /// saved prices and title untouched. Players must explicitly open the shop
+    /// again before other players can purchase from it.
+    /// </remarks>
+    protected override bool IsPlayerStoreOpeningAfterEnterSupported => false;
 
     /// <inheritdoc />
     protected override ICustomPlugInContainer<IViewPlugIn> CreateViewPlugInContainer()
