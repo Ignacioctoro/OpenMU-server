@@ -96,7 +96,8 @@ public class RemotePlayer : Player, IClientVersionProvider, IHasIpAddress
     internal MainPacketHandlerPlugInContainer MainPacketHandler { get; }
 
     /// <inheritdoc />
-    protected override bool IsPlayerStoreOpeningAfterEnterSupported => this.ClientVersion.Season > 100;
+    // BROYALMU: stores remain closed after login; saved items/prices are preserved.
+    protected override bool IsPlayerStoreOpeningAfterEnterSupported => false;
 
     /// <inheritdoc />
     protected override ICustomPlugInContainer<IViewPlugIn> CreateViewPlugInContainer()
