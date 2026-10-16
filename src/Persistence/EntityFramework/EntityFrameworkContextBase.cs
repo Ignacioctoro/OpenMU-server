@@ -24,6 +24,8 @@ internal class EntityFrameworkContextBase : IContext
 {
     private static readonly ConcurrentDictionary<IEntityType, IProperty?> PropertyToParentByEntityType = new();
 
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> AggregatePropertiesByType = new();
+
     private readonly bool _isOwner;
     private readonly IConfigurationChangeListener? _changeListener;
     private readonly AsyncLock _lock = new();
@@ -50,11 +52,6 @@ internal class EntityFrameworkContextBase : IContext
         // Ensure that the model is created.
         _ = context.Model;
     }
-
-    /// <summary>
-    /// Finalizes an instance of the <see cref="EntityFrameworkContextBase"/> class.
-    /// </summary>
-    ~EntityFrameworkContextBase() => this.Dispose(false);
 
     /// <inheritdoc />
     public bool HasChanges => this.Context.ChangeTracker.HasChanges();
@@ -250,31 +247,6 @@ internal class EntityFrameworkContextBase : IContext
         => entityType.GetSchema() == SchemaNames.Configuration;
 
     /// <summary>
-    /// Releases unmanaged and - optionally - managed resources.
-    /// </summary>
-    /// <param name="dispose"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool dispose)
-    {
-        if (!dispose || !this._isOwner)
-        {
-            return;
-        }
-
-        try
-        {
-            this.Context.Dispose();
-        }
-        catch (Exception ex)
-        {
-            // Disposal must never throw - e.g. Npgsql throws InvalidOperationException when the
-            // underlying connection is still opening ("Can't close, connection is in state
-            // Connecting") while it is being closed during a shutdown race. The context is
-            // unusable afterwards either way, so logging is all there is to do.
-            this._logger.LogWarning(ex, "Error while disposing the entity framework context.");
-        }
-    }
-
-    /// <summary>
     /// Determines whether the exception is a transient conflict caused by a concurrent entity mutation
     /// racing this save, and is therefore worth retrying.
     /// </summary>
@@ -307,9 +279,48 @@ internal class EntityFrameworkContextBase : IContext
             or KeyNotFoundException;
     }
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="dispose"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+    protected virtual void Dispose(bool dispose)
+    {
+        if (!dispose || !this._isOwner)
+        {
+            return;
+        }
+
+        try
+        {
+            this.Context.Dispose();
+        }
+        catch (Exception ex)
+        {
+            // Disposal must never throw - e.g. Npgsql throws InvalidOperationException when the
+            // underlying connection is still opening ("Can't close, connection is in state
+            // Connecting") while it is being closed during a shutdown race. The context is
+            // unusable afterwards either way, so logging is all there is to do.
+            this._logger.LogWarning(ex, "Error while disposing the entity framework context.");
+        }
+    }
+
+    /// <summary>
+    /// Locks this context for an operation which uses the <see cref="Context"/> directly,
+    /// because a <see cref="DbContext"/> doesn't support concurrent operations.
+    /// </summary>
+    /// <remarks>
+    /// The lock is not reentrant, so the locked operation must not call other locking methods of this context.
+    /// </remarks>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The disposable which releases the lock.</returns>
+    protected AwaitableDisposable<IDisposable> LockAsync(CancellationToken cancellationToken)
+    {
+        return this._lock.LockAsync(cancellationToken);
+    }
+
     private async ValueTask<bool> SaveChangesCoreAsync(CancellationToken cancellationToken)
     {
-        using var l = await this._lock.LockAsync();
+        using var l = await this._lock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         // when we have a change publisher attached, we want to get the changed entries before accepting them.
         // Otherwise, we can accept them.
@@ -384,10 +395,13 @@ internal class EntityFrameworkContextBase : IContext
 
     private void ForEachAggregate(object obj, Action<object> action)
     {
-        var aggregateProperties = obj.GetType()
-            .GetProperties(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.GetCustomAttribute<MemberOfAggregateAttribute>() is { }
-                        || p.Name.StartsWith("Joined"));
+        var aggregateProperties = AggregatePropertiesByType.GetOrAdd(
+            obj.GetType(),
+            static type => type
+                .GetProperties(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetCustomAttribute<MemberOfAggregateAttribute>() is { }
+                            || p.Name.StartsWith("Joined"))
+                .ToArray());
         foreach (var propertyInfo in aggregateProperties)
         {
             var propertyValue = propertyInfo.GetMethod?.Invoke(obj, []);
@@ -499,6 +513,15 @@ internal class EntityFrameworkContextBase : IContext
                 .FirstOrDefault(c => c.Metadata.IsCollection
                                      && (c.Metadata as INavigation)?.ForeignKey == propertyToParent.Metadata.GetContainingForeignKeys().FirstOrDefault());
             parentCollectionNavigation = parentCollection?.Metadata;
+        }
+
+        if (parentCollectionNavigation is null && propertyToParent is not null)
+        {
+            // The parent isn't tracked, e.g. the game configuration when an object is added in a typed context.
+            // Its collection is still known by the relationship, so that the change can be applied to the cached parent.
+            parentCollectionNavigation = propertyToParent.Metadata.GetContainingForeignKeys()
+                .Select(foreignKey => foreignKey.PrincipalToDependent)
+                .FirstOrDefault(navigation => navigation?.IsCollection is true);
         }
 
         return (parent ?? parentId, parentCollectionNavigation);
