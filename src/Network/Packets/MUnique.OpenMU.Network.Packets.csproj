@@ -45,6 +45,8 @@
     <!-- We only run the transformation locally on our dev environment with visual studio.
         The CI environment is identified by the parameter 'ci'. It's set in the azure pipelines and Dockerfile.
         If you run into errors here under Linux/Mac OS, it might help to add this parameter, too. -->
+    <XslTransformation OutputPaths="ServerToClient\PartyExtendedPackets.cs" XmlInputPaths="ServerToClient\PartyExtendedPackets.xml" XslInputPath="GenerateStructs.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='PartyExtendedPackets.cs'/&gt;&lt;Parameter Name='subNamespace' Value='ServerToClient'/&gt;" />
+    <XslTransformation OutputPaths="ServerToClient\PartyExtendedPacketsRef.cs" XmlInputPaths="ServerToClient\PartyExtendedPackets.xml" XslInputPath="GenerateRefStructs.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='PartyExtendedPacketsRef.cs'/&gt;&lt;Parameter Name='subNamespace' Value='ServerToClient'/&gt;" />
     <XslTransformation OutputPaths="PacketHeaders.cs" XmlInputPaths="PacketHeaders.xml" XslInputPath="GenerateStructs.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='PacketHeaders.cs'/&gt;" />
     <XslTransformation OutputPaths="PacketHeadersRef.cs" XmlInputPaths="PacketHeaders.xml" XslInputPath="GenerateRefStructs.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='PacketHeadersRef.cs'/&gt;" />
     <XslTransformation OutputPaths="CommonEnums.cs" XmlInputPaths="CommonEnums.xml" XslInputPath="GenerateStructs.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='CommonEnums.cs'/&gt;" />
@@ -67,6 +69,7 @@
     <Exec Command="npx rimraf@3.0.2 ../../../docs/Packets/C*.md"></Exec>
     <Exec Command="npx xslt3 -xsl:GenerateMarkdownDocs.xslt -o:../../../docs/Packets/ClientToServer.md -s:ClientToServer/ClientToServerPackets.xml"></Exec>
     <Exec Command="npx xslt3 -xsl:GenerateMarkdownDocs.xslt -o:../../../docs/Packets/ServerToClient.md -s:ServerToClient/ServerToClientPackets.xml"></Exec>
+    <Exec Command="npx xslt3 -xsl:GenerateMarkdownDocs.xslt -o:../../../docs/Packets/PartyExtendedPackets.md -s:ServerToClient/PartyExtendedPackets.xml"></Exec>
     <Exec Command="npx xslt3 -xsl:GenerateMarkdownDocs.xslt -o:../../../docs/Packets/ConnectServer.md -s:ConnectServer/ConnectServerPackets.xml"></Exec>
     <Exec Command="npx xslt3 -xsl:GenerateMarkdownDocs.xslt -o:../../../docs/Packets/ChatServer.md -s:ChatServer/ChatServerPackets.xml"></Exec>
   </Target>

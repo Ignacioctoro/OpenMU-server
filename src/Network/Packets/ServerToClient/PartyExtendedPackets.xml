@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PacketDefinitions xmlns="http://www.munique.net/OpenMU/PacketDefinitions">
+  <Description>Party vitals for the extended open-source client protocol.</Description>
+  <Structures />
+  <Packets>
+    <Packet>
+      <HeaderType>C1Header</HeaderType>
+      <Code>44</Code>
+      <Name>PartyVitalsUpdateExtended</Name>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>Periodically when party membership, health or mana changes. Used by clients of Season 106 Episode 3 or newer.</SentWhen>
+      <CausedReaction>The client updates party health and mana bars, including members outside the local viewport. Original Season 6 clients continue receiving PartyHealthUpdate.</CausedReaction>
+      <Fields>
+        <Field><Index>3</Index><Type>Byte</Type><Name>Count</Name></Field>
+        <Field><Index>4</Index><Type>Structure[]</Type><TypeName>PartyMemberVitalsExtended</TypeName><Name>Members</Name><ItemCountField>Count</ItemCountField></Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>PartyMemberVitalsExtended</Name>
+          <Description>Party list index and current and maximum health and mana.</Description>
+          <Length>17</Length>
+          <Fields>
+            <Field><Index>0</Index><Type>Byte</Type><Name>Index</Name></Field>
+            <Field><Index>1</Index><Type>IntegerLittleEndian</Type><Name>CurrentHealth</Name></Field>
+            <Field><Index>5</Index><Type>IntegerLittleEndian</Type><Name>MaximumHealth</Name></Field>
+            <Field><Index>9</Index><Type>IntegerLittleEndian</Type><Name>CurrentMana</Name></Field>
+            <Field><Index>13</Index><Type>IntegerLittleEndian</Type><Name>MaximumMana</Name></Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
+  </Packets>
+</PacketDefinitions>
