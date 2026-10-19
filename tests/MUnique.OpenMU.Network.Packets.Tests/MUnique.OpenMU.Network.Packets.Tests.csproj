@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -42,6 +42,7 @@
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(ci)'!='true'">
     <!-- Generate test files from XML packet definitions -->
+    <XslTransformation OutputPaths="PartyExtendedPacketTests.cs" XmlInputPaths="..\..\src\Network\Packets\ServerToClient\PartyExtendedPackets.xml" XslInputPath="..\..\src\Network\Packets\GenerateTests.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='PartyExtendedPacketTests.cs'/&gt;&lt;Parameter Name='testClassName' Value='PartyExtendedPacketTests'/&gt;&lt;Parameter Name='subNamespace' Value='ServerToClient'/&gt;" />
     <XslTransformation OutputPaths="ClientToServerPacketTests.cs" XmlInputPaths="..\..\src\Network\Packets\ClientToServer\ClientToServerPackets.xml" XslInputPath="..\..\src\Network\Packets\GenerateTests.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='ClientToServerPacketTests.cs'/&gt;&lt;Parameter Name='subNamespace' Value='ClientToServer'/&gt;" />
     <XslTransformation OutputPaths="ServerToClientPacketTests.cs" XmlInputPaths="..\..\src\Network\Packets\ServerToClient\ServerToClientPackets.xml" XslInputPath="..\..\src\Network\Packets\GenerateTests.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='ServerToClientPacketTests.cs'/&gt;&lt;Parameter Name='subNamespace' Value='ServerToClient'/&gt;" />
     <XslTransformation OutputPaths="ChatServerPacketTests.cs" XmlInputPaths="..\..\src\Network\Packets\ChatServer\ChatServerPackets.xml" XslInputPath="..\..\src\Network\Packets\GenerateTests.xslt" Parameters="&lt;Parameter Name='resultFileName' Value='ChatServerPacketTests.cs'/&gt;&lt;Parameter Name='subNamespace' Value='ChatServer'/&gt;" />

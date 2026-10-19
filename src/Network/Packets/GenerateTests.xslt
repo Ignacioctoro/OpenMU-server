@@ -5,6 +5,7 @@
 >
   <xsl:param name="resultFileName" />
   <xsl:param name="subNamespace" />
+  <xsl:param name="testClassName" select="'PacketStructureTests'" />
   <xsl:output method="text" indent="yes" />
   <xsl:include href="Common.xslt" />
 
@@ -44,7 +45,7 @@ using MUnique.OpenMU.Network.Packets</xsl:text>
 /// Auto-generated tests for packet structures to validate packet definitions.
 /// &lt;/summary&gt;
 [TestFixture]
-public class PacketStructureTests
+public class </xsl:text><xsl:value-of select="$testClassName"/><xsl:text>
 {</xsl:text>
     <xsl:apply-templates select="pd:Structures/pd:Structure" />
     <xsl:apply-templates select="pd:Packets/pd:Packet" />
