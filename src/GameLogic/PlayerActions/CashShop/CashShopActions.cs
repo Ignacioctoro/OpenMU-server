@@ -1,4 +1,4 @@
-﻿// <copyright file="CashShopActions.cs" company="MUnique">
+// <copyright file="CashShopActions.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -70,12 +70,14 @@ public class CashShopActions
     /// <param name="player">The player.</param>
     public async ValueTask ShowPointsAsync(Player player)
     {
-        if (!IsOpenAndAllowed(player) || player.Account is not { } account)
+        if (!player.IsConnected || player.SelectedCharacter is null ||
+            player.PlayerState.CurrentState != PlayerState.EnteredWorld || player.Account is not { } account)
         {
             return;
         }
 
-        // The client requests the points whenever the cash shop is opened, so new grants show up then.
+        // Balance reads also serve the inventory and personal store. They do not open
+        // the cash shop or bypass restrictions on purchases and consumption.
         await player.ApplyPendingCashShopCoinGrantsAsync().ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(p => p.ShowPointsAsync(account)).ConfigureAwait(false);
     }

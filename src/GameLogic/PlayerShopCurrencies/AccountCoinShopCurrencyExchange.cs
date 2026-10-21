@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlayerShopCurrencies;
 
 using MUnique.OpenMU.GameLogic.CashShop;
+using MUnique.OpenMU.GameLogic.Views.CashShop;
 
 /// <summary>
 /// Pays prices in account coins (WCoin C, WCoin P, Goblin Points), by transferring them from the account
@@ -78,20 +79,28 @@ public sealed class AccountCoinShopCurrencyExchange : IShopCurrencyExchange
     }
 
     /// <inheritdoc />
-    public ValueTask NotifySellerAsync(ShopPurchase purchase)
+    public async ValueTask NotifySellerAsync(ShopPurchase purchase)
     {
-        return purchase.Seller.ShowLocalizedBlueMessageAsync(
+        await purchase.Seller.ShowLocalizedBlueMessageAsync(
             nameof(PlayerMessage.PlayerShopCoinsReceived),
             purchase.Price.Amount,
-            purchase.Seller.GetCurrencyName(purchase.Price));
+            purchase.Seller.GetCurrencyName(purchase.Price)).ConfigureAwait(false);
+        if (purchase.Seller.Account is { } account)
+        {
+            await purchase.Seller.InvokeViewPlugInAsync<ICashShopViewPlugIn>(view => view.ShowPointsAsync(account)).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc />
-    public ValueTask NotifyBuyerAsync(ShopPurchase purchase)
+    public async ValueTask NotifyBuyerAsync(ShopPurchase purchase)
     {
-        return purchase.Buyer.ShowLocalizedBlueMessageAsync(
+        await purchase.Buyer.ShowLocalizedBlueMessageAsync(
             nameof(PlayerMessage.PlayerShopCoinsPaid),
             purchase.Price.Amount,
-            purchase.Buyer.GetCurrencyName(purchase.Price));
+            purchase.Buyer.GetCurrencyName(purchase.Price)).ConfigureAwait(false);
+        if (purchase.Buyer.Account is { } account)
+        {
+            await purchase.Buyer.InvokeViewPlugInAsync<ICashShopViewPlugIn>(view => view.ShowPointsAsync(account)).ConfigureAwait(false);
+        }
     }
 }

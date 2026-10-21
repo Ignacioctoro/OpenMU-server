@@ -1,4 +1,4 @@
-﻿// <copyright file="DataInitializationBase.cs" company="MUnique">
+// <copyright file="DataInitializationBase.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -207,6 +207,12 @@ public abstract class DataInitializationBase : IDataInitializationPlugIn
             {
                 plugInConfiguration.IsActive = false;
             }
+
+            // This deployment enables jewel/WCoin C personal stores on new Season 6 databases.
+            if (plugInType == typeof(PlayerShopCurrenciesFeaturePlugIn) && this is VersionSeasonSix.DataInitialization)
+            {
+                plugInConfiguration.IsActive = true;
+            }
         });
 
         this.AddAllUpdateEntries(plugInManager);
@@ -221,6 +227,11 @@ public abstract class DataInitializationBase : IDataInitializationPlugIn
 
     private PlayerShopCurrenciesConfiguration CreatePlayerShopCurrenciesConfiguration()
     {
+        if (this is VersionSeasonSix.DataInitialization)
+        {
+            return PlayerStoreCurrencyPreset.Create(this.GameConfiguration);
+        }
+
         var configuration = new PlayerShopCurrenciesConfiguration();
         ItemIdentifier[] jewels =
         [
