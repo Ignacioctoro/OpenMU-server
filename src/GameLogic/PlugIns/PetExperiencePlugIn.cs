@@ -10,6 +10,7 @@ using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Pet;
 using MUnique.OpenMU.GameLogic.PlayerActions.Items;
 using MUnique.OpenMU.GameLogic.Views.Pet;
+using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -86,6 +87,15 @@ public class PetExperiencePlugIn : IPlayerGainedExperiencePlugIn
                && (!pet.IsDarkRaven() || pet.GetDarkRavenLeadershipRequirement(pet.Level + 1) <= player.Attributes![Stats.TotalLeadership]))
         {
             pet.Level++;
+            // Refresh cached appearance and nearby clients when the Raven
+            // crosses a model/glow boundary. Do not rebuild its power-ups.
+            if (pet.IsDarkRaven() && (pet.Level == 20 || pet.Level == 40))
+            {
+                player.OnAppearanceChanged();
+                await player.ForEachWorldObserverAsync<IAppearanceChangedPlugIn>(
+                    p => p.AppearanceChangedAsync(player, pet, true),
+                    false).ConfigureAwait(false);
+            }
             player.Attributes!.ItemPowerUps[pet] = player.Attributes.ItemPowerUps[pet]
                 .Append(new PowerUpWrapper(
                     new SimpleElement(1, AggregateType.AddRaw),

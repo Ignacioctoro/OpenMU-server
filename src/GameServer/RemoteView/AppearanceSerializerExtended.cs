@@ -139,6 +139,9 @@ public class AppearanceSerializerExtended : IAppearanceSerializer
 
     private void SetShinyItem(Span<byte> data, ItemAppearance? item)
     {
+        // Low two bits are reserved in extended appearance. Carry the Raven's
+        // visual tier without truncating its 0..50 level into equipment glow.
+        data[2] &= 0xFC;
         var shinyItem = new ShinyItem(data);
         if (item?.Definition is null)
         {
@@ -155,6 +158,10 @@ public class AppearanceSerializerExtended : IAppearanceSerializer
             shinyItem.GlowLevel = item.GetGlowLevel();
             shinyItem.IsExcellent = this.IsExcellent(item);
             shinyItem.IsAncient = this.IsAncient(item);
+            if (item.Definition.Group == 13 && item.Definition.Number == 5)
+            {
+                data[2] |= (byte)(item.Level >= 40 ? 2 : item.Level >= 20 ? 1 : 0);
+            }
         }
     }
 
