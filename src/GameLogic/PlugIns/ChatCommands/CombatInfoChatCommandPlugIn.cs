@@ -44,7 +44,7 @@ public class CombatInfoChatCommandPlugIn : ChatCommandPlugInBase<CharInfoChatCom
         await ReportAsync(FormattableString.Invariant($"AMMO rate={attributes[Stats.AmmunitionConsumptionRate]:0.###} amount={attributes[Stats.AmmunitionAmount]:0.###}")).ConfigureAwait(false);
         var ammo = player.Inventory?.EquippedAmmunitionItem;
         await ReportAsync(ammo is null ? "AMMO inventory=none" : FormattableString.Invariant($"AMMO inventory={ammo.Durability:0.###} item={ammo.Definition?.Group}:{ammo.Definition?.Number}")).ConfigureAwait(false);
-        await ReportAsync($"AMMO InfinityArrow={player.MagicEffectList.ActiveEffects.ContainsKey(6)}").ConfigureAwait(false);
+        await ReportAsync($"AMMO InfinityArrow={player.MagicEffectList.ContainsEffect(6)}").ConfigureAwait(false);
 
         if (player.Inventory is { } inventory)
         {
