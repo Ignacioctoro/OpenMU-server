@@ -270,31 +270,12 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             {
                 if (player.Attributes![Stats.AmmunitionConsumptionRate] > player.Attributes[Stats.AmmunitionAmount])
                 {
-                    if (skill.Number is 60 or 66 or 509)
-                    {
-                        player.Logger.LogWarning(
-                            "FORCE blocked by ammunition: skill {SkillId}, rate {Rate}, amount {Amount}. Check weapon power-ups.",
-                            skill.Number, player.Attributes[Stats.AmmunitionConsumptionRate], player.Attributes[Stats.AmmunitionAmount]);
-                    }
-
                     break;
                 }
 
                 if (!target.IsAtSafezone() && !player.IsAtSafezone() && target != player)
                 {
                     var hitInfo = await target.AttackByAsync(player, skillEntry, isCombo, 1, skill.NumberOfHitsPerAttack > 1 ? false : null).ConfigureAwait(false);
-                    if (skill.Number is 60 or 66 or 509)
-                    {
-                        if (hitInfo is null)
-                        {
-                            player.Logger.LogWarning("FORCE target rejected hit: skill {SkillId}, target {TargetId}.", skill.Number, target.Id);
-                        }
-                        else
-                        {
-                            player.Logger.LogDebug("FORCE hit: skill {SkillId}, target {TargetId}, HP damage {Damage}.", skill.Number, target.Id, hitInfo.Value.HealthDamage);
-                        }
-                    }
-
                     player.LastAttackedTarget.SetTarget(target);
                     success = await target.TryApplyElementalEffectsAsync(player, skillEntry, hitInfo).ConfigureAwait(false) || success;
 
