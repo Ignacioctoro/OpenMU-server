@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameServer.MessageHandler;
 
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.Network.Packets.ClientToServer;
 using MUnique.OpenMU.Network.PlugIns;
 using MUnique.OpenMU.PlugIns;
@@ -34,7 +35,24 @@ internal class MagicEffectCancelHandlerPlugIn : IPacketHandlerPlugIn
     /// <inheritdoc/>
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
+        if (packet.Length < MagicEffectCancelRequest.Length)
+        {
+            return;
+        }
+
         MagicEffectCancelRequest message = packet;
+        if ((message.SkillId & BuffHudProtocol.EffectIdMarker) != 0)
+        {
+            short effectId = (short)(message.SkillId & ~BuffHudProtocol.EffectIdMarker);
+            if (message.PlayerId == player.GetId(player) && BuffHudProtocol.CanCancel(effectId)
+                && player.MagicEffectList.TryGetEffect(effectId, out var activeEffect))
+            {
+                await activeEffect.DisposeAsync().ConfigureAwait(false);
+            }
+
+            return;
+        }
+
         if (!IsCancellableSkill(message.SkillId) || player.SkillList is null || !player.SkillList.ContainsSkill(message.SkillId))
         {
             return;

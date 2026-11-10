@@ -16,6 +16,7 @@ using MUnique.OpenMU.PlugIns;
 public class MagicEffect : AsyncDisposable
 {
     private readonly Timer _finishTimer;
+    private long _expiresAtMilliseconds;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MagicEffect"/> class.
@@ -44,7 +45,9 @@ public class MagicEffect : AsyncDisposable
         this.PowerUpElements = powerUps;
         this.Definition = definition;
         this.Duration = duration;
-        this._finishTimer = new Timer(this.OnTimerTimeout, null, (int)this.Duration.TotalMilliseconds, Timeout.Infinite);
+        var milliseconds = (int)this.Duration.TotalMilliseconds;
+        this._expiresAtMilliseconds = Environment.TickCount64 + milliseconds;
+        this._finishTimer = new Timer(this.OnTimerTimeout, null, milliseconds, Timeout.Infinite);
     }
 
     /// <summary>
@@ -61,6 +64,12 @@ public class MagicEffect : AsyncDisposable
     /// Gets or sets the duration of the effect.
     /// </summary>
     public TimeSpan Duration { get; set; }
+
+    /// <summary>
+    /// Gets the time remaining on the current effect timer.
+    /// </summary>
+    public TimeSpan RemainingDuration =>
+        TimeSpan.FromMilliseconds(Math.Max(0, Interlocked.Read(ref this._expiresAtMilliseconds) - Environment.TickCount64));
 
     /// <summary>
     /// Gets the value.
@@ -98,7 +107,9 @@ public class MagicEffect : AsyncDisposable
             throw new ObjectDisposedException(nameof(MagicEffect));
         }
 
-        this._finishTimer.Change((int)this.Duration.TotalMilliseconds, Timeout.Infinite);
+        var milliseconds = (int)this.Duration.TotalMilliseconds;
+        this._finishTimer.Change(milliseconds, Timeout.Infinite);
+        Interlocked.Exchange(ref this._expiresAtMilliseconds, Environment.TickCount64 + milliseconds);
     }
 
     /// <inheritdoc/>

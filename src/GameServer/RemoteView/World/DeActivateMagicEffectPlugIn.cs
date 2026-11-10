@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameServer.RemoteView.World;
 
+using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.AttributeSystem;
@@ -11,6 +12,7 @@ using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.World;
+using MUnique.OpenMU.Network;
 using MUnique.OpenMU.Network.Packets.ServerToClient;
 using MUnique.OpenMU.Network.PlugIns;
 using MUnique.OpenMU.PlugIns;
@@ -83,5 +85,35 @@ public class DeActivateMagicEffectPlugIn : IActivateMagicEffectPlugIn, IDeactiva
         {
             await this._player.Connection.SendMagicEffectStatusAsync(isActive, objectId, (byte)effect.Id).ConfigureAwait(false);
         }
+
+        if (isActive && affectedObject == this._player)
+        {
+            await this.SendBuffHudDetailsAsync(effect).ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask SendBuffHudDetailsAsync(MagicEffect effect)
+    {
+        var connection = this._player.Connection;
+        if (connection is not { Connected: true })
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            const int length = 10;
+            var data = connection.Output.GetSpan(length)[..length];
+            data[0] = 0xC1;
+            data[1] = length;
+            data[2] = 0xF3;
+            data[3] = 0xE8;
+            data[4] = (byte)effect.Id;
+            data[5] = BuffHudProtocol.CanCancel(effect.Id) ? (byte)1 : (byte)0;
+            BinaryPrimitives.WriteUInt32LittleEndian(data[6..], (uint)Math.Ceiling(effect.RemainingDuration.TotalSeconds));
+            return length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
     }
 }
